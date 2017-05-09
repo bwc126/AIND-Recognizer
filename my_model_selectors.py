@@ -105,4 +105,5 @@ class SelectorCV(ModelSelector):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
         # TODO implement model selection using CV
-        raise NotImplementedError
+        for n_components in range(self.min_n_components, self.max_n_components):
+            self.base_model(n_components)
