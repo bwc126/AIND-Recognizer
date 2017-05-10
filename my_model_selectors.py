@@ -75,10 +75,30 @@ class SelectorBIC(ModelSelector):
         :return: GaussianHMM object
         """
         warnings.filterwarnings("ignore", category=DeprecationWarning)
+        # best_model = object
+        # cur_model = object
+        best_score = float('inf')
+        word_sequences = self.sequences
+        num_samples = len(word_sequences)
+        for n_components in range(self.min_n_components, self.max_n_components+1):
+            num_splits = min(num_samples, 3)
+            split_method = KFold(num_splits)
+            cur_scores = []
+            try:
+                for cv_train_idx, cv_test_idx in split_method.split(word_sequences):
+                    train_x, train_lengths = combine_sequences(cv_train_idx, word_sequences)
+                    test_x, test_lengths = combine_sequences(cv_test_idx, word_sequences)
+                    cur_model = GaussianHMM(n_components).fit(train_x, train_lengths)
+                    logL = cur_model.score(test_x, test_lengths)
+                    BIC = -2 * logL + n_components * np.log(num_samples)
+                    cur_scores.append(BIC)
+            except:
+                break
 
-        # TODO implement model selection based on BIC scores
-        raise NotImplementedError
-
+            if np.mean(cur_scores) < best_score:
+                best_score = np.mean(cur_scores)
+                best_model = cur_model
+        return best_model
 
 class SelectorDIC(ModelSelector):
     ''' select best model based on Discriminative Information Criterion
@@ -92,9 +112,36 @@ class SelectorDIC(ModelSelector):
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-        # TODO implement model selection based on DIC scores
-        raise NotImplementedError
+        best_score = float('inf')
+        word_sequences = self.sequences
+        num_samples = len(word_sequences)
+        num_splits = min(num_samples, 3)
+        split_method = KFold(num_splits)
+        M = len(self.hwords)
+        for n_components in range(self.min_n_components, self.max_n_components+1):
+            cur_scores = []
+            try:
+                for cv_train_idx, cv_test_idx in split_method.split(word_sequences):
+                    train_x, train_lengths = combine_sequences(cv_train_idx, word_sequences)
+                    test_x, test_lengths = combine_sequences(cv_test_idx, word_sequences)
+                    cur_model = GaussianHMM(n_components).fit(train_x, train_lengths)
+                    #logP(original word) - 1 / (num words -1) * sum (logP(all other words))
+                    logP = cur_model.score(test_x, test_lengths)
+                    anti_likelihoods = 0.0
+                    words = [word for word in self.words if word != self.this_word]
+                    for word in words:
+                        word_x, word_lengths = self.hwords[word]
+                        anti_likelihoods += cur_model.score(word_x, word_lengths)
+                    avg_anti_likelihood = anti_likelihoods / (M-1)
+                    DIC = logP - avg_anti_likelihood
+                    cur_scores.append(DIC)
+            except:
+                break
 
+            if np.mean(cur_scores) < best_score:
+                best_score = np.mean(cur_scores)
+                best_model = cur_model
+        return best_model
 
 class SelectorCV(ModelSelector):
     ''' select best model based on average log Likelihood of cross-validation folds
@@ -103,7 +150,24 @@ class SelectorCV(ModelSelector):
 
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
+        best_model = object
+        cur_model = object
+        best_score = float('-inf')
+        word_sequences = self.sequences
+        for n_components in range(self.min_n_components, self.max_n_components+1):
+            num_splits = min(len(word_sequences), 3)
+            split_method = KFold(num_splits)
+            cur_scores = []
+            try:
+                for cv_train_idx, cv_test_idx in split_method.split(word_sequences):
+                    train_x, train_lengths = combine_sequences(cv_train_idx, word_sequences)
+                    test_x, test_lengths = combine_sequences(cv_test_idx, word_sequences)
+                    cur_model = GaussianHMM(n_components).fit(train_x, train_lengths)
+                    cur_scores.append(cur_model.score(test_x, test_lengths))
+            except:
+                break
 
-        # TODO implement model selection using CV
-        for n_components in range(self.min_n_components, self.max_n_components):
-            self.base_model(n_components)
+            if np.mean(cur_scores) > best_score:
+                best_score = np.mean(cur_scores)
+                best_model = cur_model
+        return best_model
