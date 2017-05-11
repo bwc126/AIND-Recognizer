@@ -75,13 +75,13 @@ class SelectorBIC(ModelSelector):
         :return: GaussianHMM object
         """
         warnings.filterwarnings("ignore", category=DeprecationWarning)
-        # best_model = object
+        best_model = object
         # cur_model = object
         best_score = float('inf')
         word_sequences = self.sequences
         num_samples = len(word_sequences)
+        num_splits = max(min(len(word_sequences), 3), 2)
         for n_components in range(self.min_n_components, self.max_n_components+1):
-            num_splits = min(num_samples, 3)
             split_method = KFold(num_splits)
             cur_scores = []
             try:
@@ -111,11 +111,11 @@ class SelectorDIC(ModelSelector):
 
     def select(self):
         warnings.filterwarnings("ignore", category=DeprecationWarning)
-
+        best_model = self.base_model(self.min_n_components)
         best_score = float('inf')
         word_sequences = self.sequences
         num_samples = len(word_sequences)
-        num_splits = min(num_samples, 3)
+        num_splits = max(min(len(word_sequences), 3), 2)
         split_method = KFold(num_splits)
         M = len(self.hwords)
         for n_components in range(self.min_n_components, self.max_n_components+1):
@@ -155,7 +155,7 @@ class SelectorCV(ModelSelector):
         best_score = float('-inf')
         word_sequences = self.sequences
         for n_components in range(self.min_n_components, self.max_n_components+1):
-            num_splits = min(len(word_sequences), 3)
+            num_splits = max(min(len(word_sequences), 3), 2)
             split_method = KFold(num_splits)
             cur_scores = []
             try:
